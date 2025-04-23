@@ -1,35 +1,22 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'add.dart';
+import 'edit.dart';
+import '../databases/shared_preferences/note_model.dart';
+//import '../animations/card_open_animation.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class Note{
-  final String title;
-  final String content;
-  final String? imagePath;
-  
-  Note({required this.title, required this.content, this.imagePath});
-  
-  Map<String,dynamic> toJson()=>{
-    'title':title,
-    'content':content,
-    'imagePath':imagePath,
-  };
-  
-  factory Note.fromJson(Map<String,dynamic>json){
-    return Note(
-      title: json['title'],
-      content: json['content'],
-      imagePath: json['imagePath'],
-    );
-  }
-}
+
+
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
   final String title;
+  final List<Note> initialNotes;
+
+  const MyHomePage({super.key, required this.title,this.initialNotes=const []});
+
+
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -41,16 +28,11 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    _loadNotes();
+    notes=widget.initialNotes;
+    //_loadNotes();
   }
-  void _addNote(Note newNote) {
-    setState(() {
-      notes.add(newNote);
-    });
-    _saveNotes();
-  }
-  
-  Future<void> _loadNotes()async{
+
+  /*Future<void> _loadNotes()async{
     final prefs=await SharedPreferences.getInstance();
     final notesString=prefs.getString('my_notes');
     if(notesString!=null&&notesString.isNotEmpty){
@@ -63,12 +45,59 @@ class _MyHomePageState extends State<MyHomePage> {
         print('Error decoding notes: $e');
       }
     }
-  }
+  }*/
   Future<void> _saveNotes() async{
     final prefs=await SharedPreferences.getInstance();
     final List<Map<String,dynamic>> notesList=notes.map((note)=>note.toJson()).toList();
     await prefs.setString('my_notes', jsonEncode(notesList));
   }
+
+  void _addNote(Note newNote) {
+    setState(() {
+      notes.add(newNote);
+    });
+    _saveNotes();
+  }
+
+  void _updateNote(int index, Note updatedNote) {
+    setState(() {
+      notes[index] = updatedNote;
+    });
+    _saveNotes();
+  }
+
+  void _openEditPage(int index, GlobalKey cardKey) async {
+    final RenderBox? renderBox = cardKey.currentContext?.findRenderObject() as RenderBox?;
+    if(renderBox==null) return ;
+    final Rect startRect = renderBox.localToGlobal(Offset.zero) & renderBox.size;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditPage(note: notes[index], onNoteUpdated: (editedNote) {
+          _updateNote(index, editedNote);
+        }),
+      ),
+
+      /*PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return EditPage(note: notes[index], onNoteUpdated: (editedNote) {
+            _updateNote(index, editedNote);
+          });
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return buildCardOpenAnimation(
+            animation: animation,
+            child: child,
+            startRect: startRect,
+            context: context,
+          );
+        },
+      ),*/
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -80,14 +109,17 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Text('Add some pics to display and describe about it.'),
       ):MasonryGridView.count(
         padding:const EdgeInsets.all(8.0),
-
-          crossAxisCount: 2,
-          mainAxisSpacing: 8.0,
-          crossAxisSpacing: 8.0,
+        crossAxisCount: 2,
+        mainAxisSpacing: 8.0,
+        crossAxisSpacing: 8.0,
         itemCount:notes.length,
         itemBuilder:(context,index) {
           final note = notes[index];
-          return _NoteItems(note: note);
+          final GlobalKey cardKey=GlobalKey();
+          return GestureDetector(
+            onTap:()=>_openEditPage(index, cardKey),
+            child:_NoteItems(note: note,cardKey:cardKey),
+          );
         },
           ),
       floatingActionButton: FloatingActionButton(
@@ -108,14 +140,16 @@ class _MyHomePageState extends State<MyHomePage> {
 
 class _NoteItems extends StatelessWidget {
   final Note note;
+  final GlobalKey cardKey;
 
-  const _NoteItems({required this.note});
+  const _NoteItems({required this.note,required this.cardKey});
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return Container(
+          key: cardKey,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(8.0),

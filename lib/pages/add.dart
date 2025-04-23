@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'home.dart'; // Import the Note class
+import '../databases/shared_preferences/note_model.dart'; // Import the Note class
 
 class AddPage extends StatefulWidget {
   const AddPage({super.key});
