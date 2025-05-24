@@ -6,8 +6,13 @@ import '../databases/shared_preferences/note_model.dart';
 class EditPage extends StatefulWidget {
   final Note note;
   final Function(Note) onNoteUpdated;
+  final Function(Note) onNoteDeleted;
 
-  const EditPage({super.key, required this.note, required this.onNoteUpdated});
+  const EditPage({
+    super.key,
+    required this.note,
+    required this.onNoteUpdated,
+    required this.onNoteDeleted});
 
   @override
   State<EditPage> createState() => _EditPageState();
@@ -38,6 +43,34 @@ class _EditPageState extends State<EditPage> {
     }
   }
 
+  void _confirmDelete() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Note?'),
+          content: const Text('Are you sure you want to delete this note? This action cannot be undone.'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Dismiss the dialog
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Dismiss the dialog
+                widget.onNoteDeleted(widget.note); // Call the delete callback
+                Navigator.of(context).pop(); // Go back to previous screen after deletion
+              },
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -50,6 +83,11 @@ class _EditPageState extends State<EditPage> {
         ),
         title: const Text('Edit Note'),
         actions: [
+          IconButton(
+              onPressed: _confirmDelete,
+              icon: Icon(Icons.delete),
+              color: Colors.red,
+          ),
           IconButton(
             onPressed: () {
               final updatedTitle = _titleController.text;

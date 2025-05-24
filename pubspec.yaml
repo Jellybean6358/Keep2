@@ -38,6 +38,8 @@ dependencies:
   flutter_staggered_grid_view: ^0.7.0
   shared_preferences: ^2.3.0
   flutter_native_splash: ^2.3.1
+  liquid_pull_refresh: ^1.0.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

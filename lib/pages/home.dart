@@ -1,4 +1,6 @@
+import 'package:apps/animations/liquid_pulldown_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'add.dart';
@@ -8,15 +10,11 @@ import '../databases/shared_preferences/note_model.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-
-
 class MyHomePage extends StatefulWidget {
   final String title;
   final List<Note> initialNotes;
 
   const MyHomePage({super.key, required this.title,this.initialNotes=const []});
-
-
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -32,20 +30,6 @@ class _MyHomePageState extends State<MyHomePage> {
     //_loadNotes();
   }
 
-  /*Future<void> _loadNotes()async{
-    final prefs=await SharedPreferences.getInstance();
-    final notesString=prefs.getString('my_notes');
-    if(notesString!=null&&notesString.isNotEmpty){
-      try{
-        final List<dynamic> decodedList=jsonDecode(notesString);
-        setState(() {
-          notes=decodedList.map((item)=>Note.fromJson(item)).toList();
-        });
-      }catch(e){
-        print('Error decoding notes: $e');
-      }
-    }
-  }*/
   Future<void> _saveNotes() async{
     final prefs=await SharedPreferences.getInstance();
     final List<Map<String,dynamic>> notesList=notes.map((note)=>note.toJson()).toList();
@@ -66,38 +50,49 @@ class _MyHomePageState extends State<MyHomePage> {
     _saveNotes();
   }
 
+  Future<void> _handleRefresh() async{
+    await Future.delayed(const Duration(seconds: 2));
+    HapticFeedback.lightImpact();
+    setState(() {
+      notes.insert(0,Note(
+        title:'Refreshed Note ${DateTime.now().second}',
+        content:'This was added on refresh',
+        imagePath: null,
+      ));
+    });
+    _saveNotes();
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Page Refreshed!')),
+    );
+  }
   void _openEditPage(int index, GlobalKey cardKey) async {
+    HapticFeedback.lightImpact();
     final RenderBox? renderBox = cardKey.currentContext?.findRenderObject() as RenderBox?;
     if(renderBox==null) return ;
-    final Rect startRect = renderBox.localToGlobal(Offset.zero) & renderBox.size;
+    //final Rect startRect = renderBox.localToGlobal(Offset.zero) & renderBox.size;
 
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => EditPage(note: notes[index], onNoteUpdated: (editedNote) {
           _updateNote(index, editedNote);
-        }),
+        },
+        onNoteDeleted: (deletedNote){
+          _deleteNote(deletedNote);
+        },
+        ),
       ),
-
-      /*PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return EditPage(note: notes[index], onNoteUpdated: (editedNote) {
-            _updateNote(index, editedNote);
-          });
-        },
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return buildCardOpenAnimation(
-            animation: animation,
-            child: child,
-            startRect: startRect,
-            context: context,
-          );
-        },
-      ),*/
     );
   }
-
+  void _deleteNote(Note noteToDelete) {
+    setState(() {
+      notes.removeWhere((note)=>note==noteToDelete);
+    });
+    _saveNotes();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Note "${noteToDelete.title}" deleted.')),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -105,7 +100,9 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body: notes.isEmpty?const Center(
+      body: LiquidRefreshAnimation(
+          onRefresh: _handleRefresh,
+          child:notes.isEmpty?const Center(
         child: Text('Add some pics to display and describe about it.'),
       ):MasonryGridView.count(
         padding:const EdgeInsets.all(8.0),
@@ -121,7 +118,7 @@ class _MyHomePageState extends State<MyHomePage> {
             child:_NoteItems(note: note,cardKey:cardKey),
           );
         },
-          ),
+          ),),
       floatingActionButton: FloatingActionButton(
         onPressed:()async{
           final newNote=await Navigator.push(
@@ -155,7 +152,7 @@ class _NoteItems extends StatelessWidget {
             borderRadius: BorderRadius.circular(8.0),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.2),
+                color: Colors.grey.withAlpha((255*0.2).round()),
                 spreadRadius: 1,
                 blurRadius: 3,
                 offset: const Offset(0, 2), // changes position of shadow
